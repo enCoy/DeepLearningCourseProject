@@ -2,7 +2,7 @@ import cv2
 import pickle
 import os
 import numpy as np
-from utils.utils import align_rotation, get_3d_bbox, get_sRT_mat, transform_coordinates_3d, calculate_2d_projections
+from utils.utils import align_rotation, align_nocs_to_depth, get_3d_bbox, get_sRT_mat, transform_coordinates_3d, calculate_2d_projections
 from utils.utils import load_depth, load_coord, load_mask, load_label, load_colored
 from tqdm import tqdm
 from dataset.dataset_preprocess import process_data
@@ -13,17 +13,37 @@ import glob
 def draw_bboxes(img, img_pts, color):
     img_pts = np.int32(img_pts).reshape(-1, 2)
     # draw ground layer in darker color
+    colors = [(255, 0, 0),
+              (255, 0, 128),
+              (255, 0, 255),
+              (18, 199, 199),
+              (137, 0, 255),
+              (0, 0, 255),
+              (3, 105, 165),
+              (0, 205, 255),
+              (0, 255, 0),
+              (125, 51, 51),
+              (255, 162, 0),
+              (0, 0, 0)
+              ]
+
     color_ground = (int(color[0]*0.3), int(color[1]*0.3), int(color[2]*0.3))
+    counter = 0
     for i, j in zip([4, 5, 6, 7], [5, 7, 4, 6]):
-        img = cv2.line(img, tuple(img_pts[i]), tuple(img_pts[j]), color_ground, 2)
+        # img = cv2.line(img, tuple(img_pts[i]), tuple(img_pts[j]), color_ground, 2)
+        img = cv2.line(img, tuple(img_pts[i]), tuple(img_pts[j]), colors[counter], 2)
+        counter +=1
     # draw pillars in minor darker color
     color_pillar = (int(color[0]*0.6), int(color[1]*0.6), int(color[2]*0.6))
     for i, j in zip(range(4), range(4, 8)):
-        img = cv2.line(img, tuple(img_pts[i]), tuple(img_pts[j]), color_pillar, 2)
+        # img = cv2.line(img, tuple(img_pts[i]), tuple(img_pts[j]), color_pillar, 2)
+        img = cv2.line(img, tuple(img_pts[i]), tuple(img_pts[j]), colors[counter], 2)
+        counter += 1
     # draw top layer in original color
     for i, j in zip([0, 1, 2, 3], [1, 3, 0, 2]):
-        img = cv2.line(img, tuple(img_pts[i]), tuple(img_pts[j]), color, 2)
-
+        # img = cv2.line(img, tuple(img_pts[i]), tuple(img_pts[j]), color, 2)
+        img = cv2.line(img, tuple(img_pts[i]), tuple(img_pts[j]), colors[counter], 2)
+        counter += 1
     return img
 
 def draw_detections_gt(img, out_dir, img_id, intrinsics,
@@ -52,13 +72,14 @@ def draw_detections_gt(img, out_dir, img_id, intrinsics,
     cv2.imwrite(out_path, img)
 
 
-def generate_gt_3d_boxes_train(data_dir):
+def generate_gt_3d_boxes(data_dir, data_name='train'):
     # creates label pickle files for training data set and
-    real_train = open(os.path.join(data_dir, 'Real/train_list_all.txt')).read().splitlines()
     intrinsics = np.array([[591.0125, 0, 322.525], [0, 590.16775, 244.11084], [0, 0, 1]])
+    real_train = open(os.path.join(data_dir, f'Real/{data_name}_list_all.txt')).read().splitlines()
+
     # scale factors for all instances
     scale_factors = {}
-    path_to_size = glob.glob(os.path.join(data_dir, 'obj_models/real_train', '*_norm.txt'))
+    path_to_size = glob.glob(os.path.join(data_dir, f'obj_models/real_{data_name}', '*_norm.txt'))
     for inst_path in sorted(path_to_size):
         instance = os.path.basename(inst_path).split('.')[0]
         bbox_dims = np.loadtxt(inst_path)
@@ -77,9 +98,12 @@ def generate_gt_3d_boxes_train(data_dir):
                     os.path.exists(img_full_path + '_depth.png') and \
                     os.path.exists(img_full_path + '_mask.png') and \
                     os.path.exists(img_full_path + '_meta.txt')
+
         if not all_exist:
             continue
-        masks, coords, class_ids, instance_ids, model_list, bboxes, depth = process_data(img_full_path)
+
+
+        colored, masks, coords, class_ids, instance_ids, model_list, bboxes, depth = process_data(img_full_path)
         if instance_ids is None:
             continue
 
@@ -122,7 +146,80 @@ def generate_gt_3d_boxes_train(data_dir):
         draw_detections_gt(img, output_dir, img_id, intrinsics,
                            gt_sRT, gt_size, gt_class_ids=instance_ids)
 
+def generate_gt_3d_boxes_camera(data_dir, data_name='val'):
+    # creates label pickle files for training data set and
+    intrinsics = np.array([[577.5, 0, 319.5], [0, 577.5, 239.5], [0, 0, 1]],
+                dtype=np.float)
+    camera_train = open(os.path.join(data_dir, f'CAMERA/{data_name}_list_all.txt')).read().splitlines()
+
+    for img_path in tqdm(camera_train):
+        # last 5 characters are for the index of the image
+        output_dir = os.path.join(data_dir, 'CAMERA', img_path[:-5], 'gt_bboxes')
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        img_full_path = os.path.join(data_dir, 'CAMERA', img_path)
+        all_exist = os.path.exists(img_full_path + '_color.png') and \
+                    os.path.exists(img_full_path + '_coord.png') and \
+                    os.path.exists(img_full_path + '_depth.png') and \
+                    os.path.exists(img_full_path + '_mask.png') and \
+                    os.path.exists(img_full_path + '_meta.txt')
+        if not all_exist:
+            continue
+
+        # use meta.txt for scale factors
+        # scale factors for all instances
+        scale_factors = {}
+        meta_path = img_full_path + '_meta.txt'
+        with open(meta_path, 'r') as f:
+            i = 0
+            for line in f:
+                # lets say for image 0000 our line is 1 6 mug2_scene3_norm
+                line_info = line.strip().split(' ')  # ['1', '6', 'mug2_scene3_norm']
+                inst_id = int(line_info[0])  # 1 in this case
+                cls_id = int(line_info[1])  # 6 in this case
+                # background objects and non-existing objects
+                if cls_id == 0:
+                    continue
+                model_folder_id = line_info[2]
+                model_id = line_info[3]
+                bbox_txt_file_name = os.path.join(data_dir, 'obj_models', 'val', model_folder_id, model_id, 'bbox.txt')
+                bbox_dims = np.loadtxt(bbox_txt_file_name)[0, :]
+                scale_factors[model_id] = bbox_dims / np.linalg.norm(bbox_dims)
+
+        colored, masks, coords, class_ids, instance_ids, model_list, bboxes, depth = process_data(img_full_path)
+        if instance_ids is None:
+            continue
+        # Umeyama alignment of GT NOCS map with depth image
+        scales, rotations, translations, error_messages, _ = \
+            align_nocs_to_depth(masks, coords, depth, intrinsics, instance_ids, img_path)
+        if error_messages:
+            continue
+
+        # compute pose
+        num_insts = len(class_ids)
+        gt_sRT = np.zeros((num_insts, 4, 4))
+        gt_size = np.zeros((num_insts, 3))
+        for i in range(num_insts):
+            s = scale_factors[model_list[i]]
+            R = rotations[i]
+            T = translations[i]
+
+            # get size matrix
+            gt_sRT[i, :, :] = get_sRT_mat(s, R, T)
+            gt_size[i, :] = scales[i]
+
+
+        # draw the ground truth boxed image
+        img = load_colored(img_full_path)
+        img_id = img_path[-4:]
+        draw_detections_gt(img, output_dir, img_id, intrinsics,
+                           gt_sRT, gt_size, gt_class_ids=instance_ids)
+
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Cem Okan\Desktop\deep learning\project\data"
+    user_dir = r"C:\Users\Cem Okan"   # change this on your computer
+    data_dir = user_dir + r"\Dropbox (GaTech)\deep_learning_data"
     # annotate_real_train(data_dir)
-    generate_gt_3d_boxes_train(data_dir)
+    generate_gt_3d_boxes_camera(data_dir, data_name='val')
+    # generate_gt_3d_boxes(data_dir, data_name='test')
+    # generate_gt_3d_boxes(data_dir, data_name='train')
