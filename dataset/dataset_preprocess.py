@@ -9,7 +9,7 @@ from random import sample
 import random
 from tqdm import tqdm
 from utils.utils import load_depth, load_label, load_mask, load_coord, load_colored, align_nocs_to_depth
-from utils.utils import get_sRT_mat, align_rotation, get_3d_bbox, transform_coordinates_3d, calculate_2d_projections
+from utils.utils import get_sRT_mat, align_rotation, get_3d_bbox, transform_coordinates_3d, calculate_2d_projections, scene_to_point_cloud
 
 def create_img_list(data_dir):
     # CAMERA dataset
@@ -207,6 +207,7 @@ def annotate_real(data_dir, data_name='train', output_dir_name='train_data'):
         rotations = np.zeros((num_insts, 3, 3))
         translations = np.zeros((num_insts, 3))
         projected_bboxes = np.zeros((num_insts, 8, 2))
+        bboxes_3d = np.zeros((num_insts, 3, 8))
 
 
         for i in range(num_insts):
@@ -246,10 +247,12 @@ def annotate_real(data_dir, data_name='train', output_dir_name='train_data'):
             bbox_3d = get_3d_bbox(s, shift=0)
             # scale rotate and translate that bounding box
             transformed_bbox_3d = transform_coordinates_3d(bbox_3d, sRT)
+
             # project that bounding box to 2d from 3d
             projected_bbox = calculate_2d_projections(transformed_bbox_3d, intrinsics)
             # projected bbox has shape 8x2
             projected_bboxes[i, :, :] = projected_bbox
+            bboxes_3d[i, :, :] = transformed_bbox_3d
 
             gts_individual['class_id'] = class_ids[i]  # int list, 1 to 6
             # following is the label
@@ -268,7 +271,10 @@ def annotate_real(data_dir, data_name='train', output_dir_name='train_data'):
             gts_individual['x_depth'] = x_depth
             gts_individual['y_depth'] = y_depth
             gts_individual['z_depth'] = z_depth
+            gts_individual['depth'] = depth
             gts_individual['rgb'] = rgb_masked
+            gts_individual['rgb_colored'] = colored
+            gts_individual['intrinsics'] = intrinsics
 
             with open(ground_truth_folder + f'/real_{img_counter}_inst_{instance_ids[i]}_label.pkl', 'wb') as f:
                 cPickle.dump(gts_individual, f)
@@ -276,7 +282,13 @@ def annotate_real(data_dir, data_name='train', output_dir_name='train_data'):
 
             # write results
         # write results - THIS WAS FOR SCENE BASED DATA LOADER - CURRENTLY WE DO NOT USE THIS
-        # gts = {}
+        ground_truth_folder_scene = os.path.join(data_dir, f'gts/scene_{output_dir_name}')
+        if not os.path.isdir(ground_truth_folder_scene):
+            os.makedirs(ground_truth_folder_scene)
+        gts = {}
+
+
+        # point_cloud = scene_to_point_cloud(depth, intrinsics)
         # gts['class_ids'] = class_ids  # int list, 1 to 6
         # gts['bboxes'] = bboxes  # np.array, [[y1, x1, y2, x2], ...]
         # gts['scales'] = scales.astype(np.float32)  # np.array, scale factor from NOCS model to depth observation
@@ -285,9 +297,12 @@ def annotate_real(data_dir, data_name='train', output_dir_name='train_data'):
         # gts['instance_ids'] = instance_ids  # int list, start from 1
         # gts['model_list'] = model_list  # str list, model id/name
         # gts['projected_bbox'] = projected_bboxes.astype(np.float32)
-        # with open(img_full_path + '_label.pkl', 'wb') as f:
+        # gts['bboxes_3d'] = bboxes_3d
+        # gts['rgb'] = colored
+        # gts['point_cloud'] = point_cloud
+        # with open(ground_truth_folder_scene + f'/real_{img_counter}_label.pkl', 'wb') as f:
         #     cPickle.dump(gts, f)
-        valid_img_list.append(img_path)
+        # valid_img_list.append(img_path)
         # write valid img list to file
 
     # this only contains the valid images
@@ -393,15 +408,20 @@ def annotate_camera(data_dir, data_name='val', output_dir_name='train_data'):
             gts_individual['x_depth'] = x_depth
             gts_individual['y_depth'] = y_depth
             gts_individual['z_depth'] = z_depth
+            gts_individual['depth'] = depth
             rgb_masked = colored[idxs[0], idxs[1], :]
             gts_individual['rgb'] = rgb_masked
-
+            gts_individual['rgb_colored'] = colored
+            gts_individual['intrinsics'] = intrinsics
             with open(ground_truth_folder + f'/camera_{img_counter}_inst_{instance_ids[i]}_label.pkl', 'wb') as f:
                 cPickle.dump(gts_individual, f)
 
         # write results - THIS WAS FOR SCENE BASED DATA LOADER - CURRENTLY WE DO NOT USE THIS
-
+        # ground_truth_folder_scene = os.path.join(data_dir, f'gts/scene_{output_dir_name}')
+        # if not os.path.isdir(ground_truth_folder_scene):
+        #     os.makedirs(ground_truth_folder_scene)
         # gts = {}
+        # point_cloud = scene_to_point_cloud(depth, intrinsics)
         # gts['class_ids'] = class_ids    # int list, 1 to 6
         # gts['bboxes'] = bboxes  # np.array, [[y1, x1, y2, x2], ...]
         # gts['scales'] = scales.astype(np.float32)  # np.array, scale factor from NOCS model to depth observation
@@ -409,10 +429,13 @@ def annotate_camera(data_dir, data_name='val', output_dir_name='train_data'):
         # gts['translations'] = translations.astype(np.float32)  # np.array, T
         # gts['instance_ids'] = instance_ids  # int list, start from 1
         # gts['model_list'] = model_list  # str list, model id/name
-        # with open(img_full_path + '_label.pkl', 'wb') as f:
+        # gts['rgb'] = colored
+        # gts['point_cloud'] = point_cloud
+
+        # with open(ground_truth_folder_scene + f'/camera_{img_counter}_label.pkl', 'wb') as f:
         #     cPickle.dump(gts, f)
 
-        valid_img_list.append(img_path)
+        # valid_img_list.append(img_path)
     # write valid img list to file
     # with open(os.path.join(data_dir, f'CAMERA/{data_name}_list.txt'), 'w') as f:
     #     for img_path in valid_img_list:
@@ -457,6 +480,7 @@ if __name__ == "__main__":
     annotate_camera(data_dir, data_name='val', output_dir_name='val_data')
     annotate_real(data_dir, data_name='test', output_dir_name='test_data')
     annotate_camera(data_dir, data_name='test', output_dir_name='test_data')
+
     annotate_real(data_dir, data_name='train', output_dir_name='train_data')
     annotate_camera(data_dir, data_name='train', output_dir_name='train_data')
 

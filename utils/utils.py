@@ -300,3 +300,35 @@ def load_label(img_path, label_type='projected_bbox'):
 def load_colored(img_path):
     img = cv2.imread(img_path + '_color.png')
     return img
+
+def scene_to_point_cloud(depth, intrinsic):
+    """
+    Converts depth map to point cloud.
+    :param ndarray depth: depth image
+    :param tuple focal_length: horizontal and vertical focal length (fx, fy)
+    :param tuple center: optical center of depth camera (cx, cy)
+    :param tuple bounding_box: (x,y,width,height)
+    :return: point cloud list of [x,y,z] coordinates
+    """
+    pc = []
+    fx = intrinsic[0, 0]
+    fy = intrinsic[1, 1]
+    cx = intrinsic[0, 2]
+    cy = intrinsic[1, 2]
+
+    height = depth.shape[0]
+    width = depth.shape[1]
+
+    # following is a matrix like [[0, 0, 0, 0, ...], [1, 1, 1, 1, 1...]]
+    U_matrix = np.repeat(np.expand_dims(np.arange(height), axis=1), width, axis=1)
+    # following is a matrix like [[0, 1, 2, ... width-1], [0, 1, 2, width-1]]
+    V_matrix = np.repeat(np.expand_dims(np.arange(width), axis=0), height, axis=0)
+
+    X = np.multiply((V_matrix - cx), depth) / fx
+    Y = np.multiply((U_matrix - cy), depth) / fy
+    output = np.concatenate((
+        np.expand_dims(X, axis=-1),
+        np.expand_dims(Y, axis=-1),
+        np.expand_dims(depth, axis=-1),
+    ), axis=-1)
+    return output
