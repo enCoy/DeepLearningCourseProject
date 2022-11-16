@@ -10,6 +10,12 @@ Camera_intrinsics = np.array([[577.5, 0, 319.5], [0, 577.5, 239.5], [0, 0, 1]],
 
 # source: https://github.com/mentian/object-deformnet/blob/master/preprocess/pose_data.py
 
+def get_intrinsics(dataset_type):
+    if dataset_type == 'CAMERA':
+        return Camera_intrinsics
+    elif dataset_type == 'Real':
+        return intrinsics
+
 def get_sRT_mat(scale, rotation, translation):
     # scale is a scaler
     # rotation is a 3x3 matrix
@@ -256,6 +262,37 @@ def align_nocs_to_depth(masks, coords, depth, intrinsics, instance_ids, img_path
         translations[i, :] = T / 1000.0
 
     return scales, rotations, translations, error_messages, elapses
+
+def align_nocs_to_depth_v2(mask, coord, depth, intrinsics, instance_id, img_path, verbose=False):
+    error_messages = ''
+    elapses = []
+    scales = None
+    rotations = np.zeros((3, 3))
+    translations = np.zeros((3))
+
+    pts, idxs = backproject(depth, intrinsics, mask)
+    coord_pts = coord[idxs[0], idxs[1], :] - 0.5
+    try:
+        start = time.time()
+        s, R, T, outtransform = estimateSimilarityTransform(coord_pts, pts, False)
+        elapsed = time.time() - start
+        if verbose:
+            print('elapsed: ', elapsed)
+        elapses.append(elapsed)
+    except Exception as e:
+        message = '[ Error ] aligning instance {} in {} fails. Message: {}.'.format(instance_id, img_path, str(e))
+        print(message)
+        error_messages += message + '\n'
+        s = 1.0
+        R = np.eye(3)
+        T = np.zeros(3)
+        outtransform = np.identity(4, dtype=np.float32)
+
+    scale = s / 1000.0
+    rotation = R
+    translation = T / 1000.0
+
+    return scale, rotation, translation, error_messages, elapses
 
 def load_depth(img_path):
     # returns depth data

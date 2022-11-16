@@ -8,8 +8,7 @@ import _pickle as cPickle
 from random import sample
 import random
 from tqdm import tqdm
-from utils.utils import load_depth, load_label, load_mask, load_coord, load_colored, align_nocs_to_depth
-from utils.utils import get_sRT_mat, align_rotation, get_3d_bbox, transform_coordinates_3d, calculate_2d_projections, scene_to_point_cloud
+from utils.utils import *
 
 def create_img_list(data_dir):
     # CAMERA dataset
@@ -29,34 +28,68 @@ def create_img_list(data_dir):
         train_img_list = []
         val_img_list = []
         test_img_list = []
+        train_meta = []
+        val_meta = []
+        test_meta = []
 
         for i in range(10 * len(folder_list)):
             folder_id = int(i) // 10
             img_id = int(i) % 10
             img_path = os.path.join(subset, '{:05d}'.format(folder_id), '{:04d}'.format(img_id))
             folder_name = '{:05d}'.format(folder_id)
-            if folder_name in train_folders:
-                train_img_list.append(img_path)
-            elif folder_name in val_folders:
-                val_img_list.append(img_path)
-            elif folder_name in test_folders:
-                test_img_list.append(img_path)
+
+            # add the meta data for camera
+            meta_path = os.path.join(data_dir, 'CAMERA', img_path) + '_meta.txt'
+            with open(meta_path, 'r') as f:
+                for line in f:
+                    # lets say for image 0000 our line is 1 6 mug2_scene3_norm
+                    line_info = line.strip().split(' ')  # ['1', '6', 'mug2_scene3_norm']
+                    inst_id = int(line_info[0])  # 1 in this case
+                    cls_id = int(line_info[1])  # 6 in this case
+                    # background objects and non-existing objects
+                    if cls_id == 0:
+                        continue
+                    model_folder_id = line_info[2]
+                    model_id = line_info[3]
+                    meta_data = str(inst_id) + '-' + str(cls_id) + '-' + str(model_folder_id) + '-' + str(model_id)
+
+                    if folder_name in train_folders:
+                        train_img_list.append(img_path)
+                        train_meta.append(meta_data)
+                    elif folder_name in val_folders:
+                        val_img_list.append(img_path)
+                        val_meta.append(meta_data)
+                    elif folder_name in test_folders:
+                        test_img_list.append(img_path)
+                        test_meta.append(meta_data)
+
         # save files
-        with open(os.path.join(data_dir, 'CAMERA', 'train' + '_list_all.txt'), 'w') as f:
+        with open(os.path.join(data_dir, 'train' + '_list_all.txt'), 'w') as f:
             for img_path in train_img_list:
-                f.write("%s\n" % img_path)
-        with open(os.path.join(data_dir, 'CAMERA', 'val' + '_list_all.txt'), 'w') as f:
+                f.write("CAMERA\%s\n" % img_path)
+        with open(os.path.join(data_dir, 'train' + '_meta.txt'), 'w') as f:
+            for meta in train_meta:
+                f.write("%s\n" % meta)
+        with open(os.path.join(data_dir, 'val' + '_list_all.txt'), 'w') as f:
             for img_path in val_img_list:
-                f.write("%s\n" % img_path)
-        with open(os.path.join(data_dir, 'CAMERA', 'test' + '_list_all.txt'), 'w') as f:
+                f.write("CAMERA\%s\n" % img_path)
+        with open(os.path.join(data_dir, 'val' + '_meta.txt'), 'w') as f:
+            for meta in val_meta:
+                f.write("%s\n" % meta)
+        with open(os.path.join(data_dir, 'test' + '_list_all.txt'), 'w') as f:
             for img_path in test_img_list:
-                f.write("%s\n" % img_path)
+                f.write("CAMERA\%s\n" % img_path)
+        with open(os.path.join(data_dir, 'test' + '_meta.txt'), 'w') as f:
+            for meta in test_meta:
+                f.write("%s\n" % meta)
 
     # creates a txt file listing paths from the directory where images are
     print("Note: In Real275-train, Scene 2 and Scene 6 are reserved for validation")
     for subset in ['train', 'test']:
         img_list = []
         img_list_for_val = []
+        val_meta = []
+        train_test_meta = []
         img_dir = os.path.join(data_dir, 'Real', subset)
         folder_list = [name for name in sorted(os.listdir(img_dir)) if os.path.isdir(os.path.join(img_dir, name))]
         for folder in folder_list:
@@ -66,25 +99,43 @@ def create_img_list(data_dir):
                 img_name = os.path.basename(img_full_path)
                 img_ind = img_name.split('_')[0]
                 img_path = os.path.join(subset, folder, img_ind)
-                if subset =='train':
-                    if (folder == 'scene_2') or (folder == 'scene_6'):
-                        img_list_for_val.append(img_path)
-                    else:
-                        img_list.append(img_path)
-                else:
-                    img_list.append(img_path)
-        with open(os.path.join(data_dir, 'Real', subset + '_list_all.txt'), 'w') as f:
+
+                meta_path = os.path.join(data_dir, 'Real', img_path) + '_meta.txt'
+                with open(meta_path, 'r') as f:
+                    for line in f:
+                        # lets say for image 0000 our line is 1 6 mug2_scene3_norm
+                        line_info = line.strip().split(' ')  # ['1', '6', 'mug2_scene3_norm']
+                        inst_id = int(line_info[0])  # 1 in this case
+                        cls_id = int(line_info[1])  # 6 in this case
+                        model_id = line_info[2]
+                        meta_data = str(inst_id) + '-' + str(cls_id) + '-' + str(model_id)
+                        if subset =='train':
+                            if (folder == 'scene_2') or (folder == 'scene_6'):
+                                img_list_for_val.append(img_path)
+                                val_meta.append(meta_data)
+                            else:
+                                img_list.append(img_path)
+                                train_test_meta.append(meta_data)
+                        else:
+                            img_list.append(img_path)
+                            train_test_meta.append(meta_data)
+        with open(os.path.join(data_dir, subset + '_list_all.txt'), 'a') as f:
             for img_path in img_list:
-                f.write("%s\n" % img_path)
+                f.write("Real\%s\n" % img_path)
+        with open(os.path.join(data_dir, subset + '_meta.txt'), 'a') as f:
+            for meta in train_test_meta:
+                f.write("%s\n" % meta)
         # save validation too
         if subset =='train':
-            with open(os.path.join(data_dir, 'Real', 'val' + '_list_all.txt'), 'w') as f:
+            with open(os.path.join(data_dir, 'val' + '_list_all.txt'), 'a') as f:
                 for img_path in img_list_for_val:
-                    f.write("%s\n" % img_path)
+                    f.write("Real\%s\n" % img_path)
+            with open(os.path.join(data_dir, 'val' + '_meta.txt'), 'a') as f:
+                for meta in val_meta:
+                    f.write("%s\n" % meta)
     print('Write all data paths to file done!')
 
 def process_data(img_path):
-
     img_colored = load_colored(img_path)
     depth = load_depth(img_path)
     mask = load_mask(img_path)
@@ -262,17 +313,18 @@ def annotate_real(data_dir, data_name='train', output_dir_name='train_data'):
             gts_individual['rotation'] = R.astype(np.float32)  # np.array, R
             gts_individual['translation'] = T.astype(np.float32)  # np.array, T
             gts_individual['instance_id'] = instance_ids[i]  # int list, start from 1
+            gts_individual['mask'] = mask
             # include depth data, x and y
-            x_depth = idxs[0]
-            y_depth = idxs[1]
-            z_depth = depth[idxs[0], idxs[1]]
-            rgb_masked = colored[idxs[0], idxs[1], :]
-            # followings will be features
-            gts_individual['x_depth'] = x_depth
-            gts_individual['y_depth'] = y_depth
-            gts_individual['z_depth'] = z_depth
+            # x_depth = idxs[0]
+            # y_depth = idxs[1]
+            # z_depth = depth[idxs[0], idxs[1]]
+            # rgb_masked = colored[idxs[0], idxs[1], :]
+            # # followings will be features
+            # gts_individual['x_depth'] = x_depth
+            # gts_individual['y_depth'] = y_depth
+            # gts_individual['z_depth'] = z_depth
+            # gts_individual['rgb'] = rgb_masked
             gts_individual['depth'] = depth
-            gts_individual['rgb'] = rgb_masked
             gts_individual['rgb_colored'] = colored
             gts_individual['intrinsics'] = intrinsics
 
@@ -401,16 +453,17 @@ def annotate_camera(data_dir, data_name='val', output_dir_name='train_data'):
             gts_individual['rotation'] = rotations[i].astype(np.float32)  # np.array, R
             gts_individual['translation'] = translations[i].astype(np.float32)  # np.array, T
             gts_individual['instance_id'] = instance_ids[i]  # int list, start from 1
+            gts_individual['mask'] = mask
             # include depth data, x and y
-            x_depth = idxs[0]
-            y_depth = idxs[1]
-            z_depth = depth[idxs[0], idxs[1]]
-            gts_individual['x_depth'] = x_depth
-            gts_individual['y_depth'] = y_depth
-            gts_individual['z_depth'] = z_depth
+            # x_depth = idxs[0]
+            # y_depth = idxs[1]
+            # z_depth = depth[idxs[0], idxs[1]]
+            # gts_individual['x_depth'] = x_depth
+            # gts_individual['y_depth'] = y_depth
+            # gts_individual['z_depth'] = z_depth
             gts_individual['depth'] = depth
-            rgb_masked = colored[idxs[0], idxs[1], :]
-            gts_individual['rgb'] = rgb_masked
+            # rgb_masked = colored[idxs[0], idxs[1], :]
+            # gts_individual['rgb'] = rgb_masked
             gts_individual['rgb_colored'] = colored
             gts_individual['intrinsics'] = intrinsics
             with open(ground_truth_folder + f'/camera_{img_counter}_inst_{instance_ids[i]}_label.pkl', 'wb') as f:
@@ -464,26 +517,149 @@ def annotate_camera(data_dir, data_name='val', output_dir_name='train_data'):
 #     #     pickle.dump(image_list, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-
-
-
 if __name__ == "__main__":
     random.seed(16)
     user_dir = r"C:\Users\Cem Okan"  # change this on your computer
     data_dir = user_dir + r"\Dropbox (GaTech)\deep_learning_data"
     # following function constructs the txt files that stores training, validation and test folder names
     create_img_list(data_dir)
+
     # construct_data_lists(data_dir, data_name='train')  # constructs a list that contains paths of
     # construct_data_lists(data_dir, data_name='test')
 
-    annotate_real(data_dir, data_name='val', output_dir_name='val_data')
-    annotate_camera(data_dir, data_name='val', output_dir_name='val_data')
-    annotate_real(data_dir, data_name='test', output_dir_name='test_data')
-    annotate_camera(data_dir, data_name='test', output_dir_name='test_data')
+    # annotate_real(data_dir, data_name='val', output_dir_name='val_data')
+    # annotate_camera(data_dir, data_name='val', output_dir_name='val_data')
+    # annotate_real(data_dir, data_name='test', output_dir_name='test_data')
+    # annotate_camera(data_dir, data_name='test', output_dir_name='test_data')
+    #
+    # annotate_real(data_dir, data_name='train', output_dir_name='train_data')
+    # annotate_camera(data_dir, data_name='train', output_dir_name='train_data')
 
-    annotate_real(data_dir, data_name='train', output_dir_name='train_data')
-    annotate_camera(data_dir, data_name='train', output_dir_name='train_data')
 
+def get_data(data_dir, obj_path, obj_meta, dataset_type, intrinsics):
+    obj_full_path = os.path.join(data_dir, obj_path)
+
+    meta_list = obj_meta.split('-')
+    inst_id = int(meta_list[0])
+    cls_id = int(meta_list[1])
+
+    all_exist = os.path.exists(obj_full_path + '_color.png') and \
+                os.path.exists(obj_full_path + '_coord.png') and \
+                os.path.exists(obj_full_path + '_depth.png') and \
+                os.path.exists(obj_full_path + '_mask.png') and \
+                os.path.exists(obj_full_path + '_meta.txt')
+    if not all_exist:
+        return None, None, None, None
+
+    img_colored = load_colored(obj_full_path)
+    depth = load_depth(obj_full_path)
+    mask = load_mask(obj_full_path)
+    coord_map = load_coord(obj_full_path)
+
+    all_inst_ids = sorted(list(np.unique(mask)))
+    assert all_inst_ids[-1]  # remove background
+    del all_inst_ids[-1]  # remove background
+    num_all_inst = len(all_inst_ids)
+    h, w = mask.shape
+
+    if dataset_type == 'CAMERA':
+        model_folder_id = meta_list[2]
+        model_id = meta_list[3]
+
+        bbox_txt_file_name = os.path.join(data_dir, 'obj_models', dataset_type, model_folder_id, model_id,
+                                          'bbox.txt')
+        bbox_dims = np.loadtxt(bbox_txt_file_name)[0, :]
+        s = bbox_dims / np.linalg.norm(bbox_dims)
+
+        inst_mask = np.equal(mask, inst_id)
+        if cls_id == 0 or (inst_id not in all_inst_ids):
+            return None, None, None, None
+        # bounding box
+        # find the x coordinates whose value equals to true in mask
+        horizontal_indices = np.where(np.any(inst_mask, axis=0))[0]
+        # find the x coordinates whose value equals to true in mask
+        vertical_indices = np.where(np.any(inst_mask, axis=1))[0]
+        x1, x2 = horizontal_indices[[0, -1]]
+        y1, y2 = vertical_indices[[0, -1]]
+        # they say x2 and y2 should not be part of the box - increment by 1
+        x2 += 1
+        y2 += 1
+        # object occupies full image, rendering error, happens in CAMERA dataset
+        final_mask = np.logical_and(inst_mask, depth > 0)
+        if np.sum(final_mask) < 64:
+            return None, None, None, None
+        if np.any(np.logical_or((x2 - x1) > 600, (y2 - y1) > 440)):
+            return None, None, None, None
+        coord = np.multiply(coord_map, np.expand_dims(inst_mask, axis=-1))
+        two_d_bbox = np.array([y1, x1, y2, x2])
+        # Umeyama alignment of GT NOCS map with depth image
+        scales, R, T, error_messages, _ = \
+            align_nocs_to_depth_v2(inst_mask, coord, depth, intrinsics, inst_id, obj_full_path)
+
+        # get the sRT matrix for that object
+        sRT = get_sRT_mat(s, R, T)
+        # based on the scale of the bounding box, construct a bounding box at the origin basically
+        bbox_3d = get_3d_bbox(s, shift=0)
+        # scale rotate and translate that bounding box
+        transformed_bbox_3d = transform_coordinates_3d(bbox_3d, sRT)
+        # project that bounding box to 2d from 3d
+        # projected_bbox = calculate_2d_projections(transformed_bbox_3d, intrinsics)
+        point_cloud = scene_to_point_cloud(depth, intrinsics)
+        return point_cloud, img_colored, inst_mask, transformed_bbox_3d
+
+    elif dataset_type == "Real":
+        model_id = meta_list[2]
+        # scale factors for all instances
+        path_to_size = os.path.join(data_dir, f'obj_models', dataset_type,f'{model_id}.txt')
+        bbox_dims = np.loadtxt(path_to_size)
+        s = bbox_dims / np.linalg.norm(bbox_dims)
+        # background objects and non-existing objects
+        if cls_id == 0 or (inst_id not in all_inst_ids):
+            return None, None, None, None
+        inst_mask = np.equal(mask, inst_id)
+        # bounding box
+        # find the x coordinates whose value equals to true in mask
+        horizontal_indices = np.where(np.any(inst_mask, axis=0))[0]
+        # find the x coordinates whose value equals to true in mask
+        vertical_indices = np.where(np.any(inst_mask, axis=1))[0]
+
+        x1, x2 = horizontal_indices[[0, -1]]
+        y1, y2 = vertical_indices[[0, -1]]
+        # they say x2 and y2 should not be part of the box - increment by 1
+        x2 += 1
+        y2 += 1
+        # object occupies full image, rendering error, happens in CAMERA dataset
+        final_mask = np.logical_and(inst_mask, depth > 0)
+        if np.sum(final_mask) < 64:
+            return None, None, None, None
+        if np.any(np.logical_or((x2 - x1) > 600, (y2 - y1) > 440)):
+            return None, None, None, None
+        coord = np.multiply(coord_map, np.expand_dims(inst_mask, axis=-1))
+        two_d_bbox = np.array([y1, x1, y2, x2])
+
+        idxs = np.where(mask)
+        # take the masked points and scale them
+        coord_pts = s * (coord[idxs[0], idxs[1], :] - 0.5)  # shape
+        coord_pts = coord_pts[:, :, None]  # expands dimension basically
+        img_pts = np.array([idxs[1], idxs[0]]).transpose()
+        img_pts = img_pts[:, :, None].astype(float)
+        distCoeffs = np.zeros((4, 1))  # no distoration
+        retval, rvec, tvec = cv2.solvePnP(coord_pts, img_pts, intrinsics, distCoeffs)
+        assert retval
+        R, _ = cv2.Rodrigues(rvec)
+        T = np.squeeze(tvec)
+
+
+        # get the sRT matrix for that object
+        sRT = get_sRT_mat(s, R, T)
+        if cls_id in [1, 2, 4]:
+            sRT = align_rotation(sRT)
+        # based on the scale of the bounding box, construct a bounding box at the origin basically
+        bbox_3d = get_3d_bbox(s, shift=0)
+        # scale rotate and translate that bounding box
+        transformed_bbox_3d = transform_coordinates_3d(bbox_3d, sRT)
+        point_cloud = scene_to_point_cloud(depth, intrinsics)
+        return point_cloud, img_colored, inst_mask, transformed_bbox_3d
 
 
 
