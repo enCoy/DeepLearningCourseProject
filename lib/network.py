@@ -36,16 +36,16 @@ class ScalePoseNet(nn.module):
 		# choose: which points to use
 		
 		out_img = self.cnn(img)
-        
-        bs, di, _, _ = out_img.size()
 
-        emb = out_img.view(bs, di, -1)
-        choose = choose.repeat(1, di, 1)
-        emb = torch.gather(emb, 2, choose).contiguous()
-        
-        pc = pc.transpose(2, 1).contiguous()
-        ap_pc = self.feat(pc, emb)
+		bs, di, _, _ = out_img.size()
 
-        pred_verts = self.net(ap_pc)
+		emb = out_img.view(bs, di, -1)
+		choose = choose.repeat(1, di, 1)
+		emb = torch.gather(emb, 2, choose).contiguous()
 
-        return pred_verts
+		pc = pc.transpose(2, 1).contiguous()
+		ap_pc = self.feat(pc, emb)
+
+		pred_verts = self.net(ap_pc)
+
+		return pred_verts
