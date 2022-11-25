@@ -99,7 +99,7 @@ class PoseNet(nn.Module):
 
         emb = out_img.view(bs, di, -1)
         choose = choose.repeat(1, di, 1)
-        emb = torch.gather(emb, 2, choose).contiguous()
+        emb = torch.gather(emb, 2, choose).contiguous() #emb is len(choose) x Cemb
         
         x = x.transpose(2, 1).contiguous()
         ap_x = self.feat(x, emb)

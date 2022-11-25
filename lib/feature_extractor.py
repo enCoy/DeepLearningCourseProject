@@ -17,7 +17,12 @@ class FeatureExtractor(nn.module):
         self.cnn = ModifiedResnet() #model that generates color features
         self.feat = PoseNetFeat(num_points)
 
-        self.pc_feat = None #TODO set the model that generates the geometric features here
+        self.pc_feat = nn.Sequential(
+            nn.Conv2d(3,16,1),
+            nn.Conv2d(16,32,1)
+        )
+
+        #TODO set the model that generates the geometric features here
 
         #model that generates features from depth image
         self.depth_feat = nn.Sequential(
@@ -32,25 +37,29 @@ class FeatureExtractor(nn.module):
     def forward(self, img, pc, choose):
         """
         Generate all features.
-        @param img: img crop to get color features for
-        @param pc: masked point cloud points for object
+        @param img: img crop to get color features for, shape: Nx3xHxW
+        @param pc: masked point cloud points for object, shape: Nx3xHxW
         @param choose: what points to choose for embedding
-        @return: concatenated feature vector [color_features,geometric_features,global_feature] of size len(choose)
+        @return: tuple of feature embeddings (color_img_feat, pc_feats)
         """
-        out_img = self.cnn(img)
+        # out_img = self.cnn(img) #shape (N,32,H,W)
+        #
+        #
+        #
+        # bs, di, _, _ = out_img.size()
 
-        bs, di, _, _ = out_img.size()
+        #TODO return color emb 32 channels and pc emb 32 channels of HxW
 
-        color_emb = out_img.view(bs, di, -1)
-        choose = choose.repeat(1, di, 1)
-        color_emb = torch.gather(color_emb, 2, choose).contiguous()
+        # color_emb = out_img.view(bs, di, -1)
+        # choose = choose.repeat(1, di, 1)
+        # color_emb = torch.gather(color_emb, 2, choose).contiguous()
 
-        pc = pc.transpose(2, 1).contiguous()
+        # pc = pc.transpose(2, 1).contiguous()
 
-        # TODO: once we change the model for geometric feature embedding, change the way global features are generated
-        all_feats = self.feat(pc, color_emb)  #[color_feat, geo_feat, global_feat]
-
-        return all_feats
+        color_emb = self.cnn(img)  # shape (N,32,H,W)
+        geo_emb = self.pc_feat(pc) # shape (N,32,H,W)
+        
+        return (color_emb, geo_emb)
 
     def color_emb(self, img):
         """
