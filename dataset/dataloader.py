@@ -5,7 +5,8 @@ from utils.utils import scene_to_point_cloud, get_intrinsics
 import pickle
 import os
 import random
-from dataset_preprocess import get_data
+from dataset.dataset_preprocess import get_data
+import torchvision.transforms as transform
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -141,20 +142,84 @@ class CustomDataLoaderV2(Dataset):
         # rgb = file['rgb_colored']
         #
 
+class CustomDataLoaderV3(Dataset):
+    # returns
+    def __init__(self, data_directory, data_name='train',apply_normalization=True, resize=(80, 120)):
+        # read the files in this data directory
+        self.data_directory = data_directory
+        self.data_list =  open(self.data_directory + '/' +data_name + "_list_all.txt", "r").read().split("\n")
+        self.meta_list = open(self.data_directory + '/' +data_name + "_meta.txt", "r").read().split("\n")
+        self.apply_normalization = apply_normalization
 
-if __name__ == "__main__":
-    user_dir = r'C:\Users\Cem Okan'  # change this on your computer
-    data_dir = user_dir + r'\Dropbox (GaTech)\deep_learning_data'
-    # sampling size does not work right now
-    train_dataset = CustomDataLoaderV2(data_dir, data_name='train', apply_normalization=True)
-    val_dataset = CustomDataLoaderV2(data_dir, data_name='val', apply_normalization=True)
-    test_dataset = CustomDataLoaderV2(data_dir, data_name='test',apply_normalization=True)
+        # pc and rgb crops will be resized to this in order to have common HxW
+        self.extracted_feature_size = (80, 120)
+        self.resizer = transform.Resize(self.extracted_feature_size)
 
-    batch_size = 4
-    train_loader = DataLoader(train_dataset, batch_size=128, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=128, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=16, shuffle=True)
-    for (point_cloud, rgb, mask, bbox_coords) in val_loader:
-        continue
+    def __len__(self):
+        return len(self.data_list)
+    #
+    def __getitem__(self, idx):
+        if idx >= len(self.data_list):
+            raise StopIteration
+        obj_path = self.data_list[idx]
+        obj_meta = self.meta_list[idx]
+        # print("here is obj path: ", obj_path)
+        dataset_type = None
+        if obj_path[0:4]=='Real':
+            dataset_type = 'Real'
+        elif obj_path[0:6]=='CAMERA':
+            dataset_type = 'CAMERA'
+        else:
+            intrinsics = None
+            print("This is neither REAL275 nor CAMERA!")
+        intrinsics = get_intrinsics(dataset_type)
+        # now we will return point cloud depth data, rgb color data, mask and label
+        point_cloud, rgb, mask, bbox_coords = get_data(self.data_directory, obj_path,
+                                                                                    obj_meta, dataset_type, intrinsics)
+        if (point_cloud is None or rgb is None) or (mask is None or bbox_coords is None):
+            del self.data_list[idx]
+            del self.meta_list[idx]
+            return self.__getitem__(idx)
+
+        point_cloud = torch.tensor(point_cloud)
+        rgb = torch.tensor(rgb)
+
+        if self.apply_normalization:
+            # divide rgb by 255
+            rgb = rgb /255
+            # point_cloud = torch.reshape(self.pc_norm(point_cloud), (self.HEIGHT, self.WIDTH, self.CHANNELS))
+            # apply channel wise min_max scaling to point cloud data
+            r_max = torch.amax(point_cloud, dim=(0, 1))  # channel dimension will remain
+            r_min = torch.amin(point_cloud, dim=(0, 1))  # channel dimension will remain
+            t_min = torch.tensor([[-1,-1,-1]], dtype=torch.float64)
+            t_max = torch.tensor([[+1, +1, +1]], dtype=torch.float64)
+            point_cloud = ((point_cloud - r_min)/(r_max - r_min)) * (t_max - t_min) + t_min
+
+        # crop the rgb and pc
+        idxs = np.where(np.squeeze(mask))
+        y_min = np.min(idxs[0])
+        y_max = np.max(idxs[0])
+        x_min = np.min(idxs[1])
+        x_max = np.max(idxs[1])
+        # apply this mask to point cloud and rgb image
+        rgb = rgb[y_min:y_max, x_min:x_max, :]
+        pc = point_cloud[y_min:y_max, x_min:x_max, :]
+        # carry channel dimension to first one
+        rgb = torch.permute(rgb, (2, 0, 1))
+        pc = torch.permute(pc, (2, 0, 1))
+
+        # resize
+        rgb = torch.unsqueeze(self.resizer(rgb), dim=0)  # add extra dimension for that to work
+        pc = torch.unsqueeze(self.resizer(pc), dim=0)
+        rgb = torch.squeeze(rgb)
+        pc = torch.squeeze(pc)
+        # features shape (self.sampling_size, num_features=6)
+        # labels shape (3, 8) - 8 from total num of vertices, 3 from xyz
+        # point cloud shape: BatchSize x H x W x 3
+        # rgb shape: BatchSize x H x W x 3
+        # mask shape: BatchSize x H x W
+        # bbox_coords shape: BatchSize x 3 x 8
+        return pc, rgb, bbox_coords
+
 
 

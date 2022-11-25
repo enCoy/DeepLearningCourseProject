@@ -2,6 +2,7 @@ import numpy as np
 import math
 import cv2
 import pickle
+import torch
 import time
 intrinsics = np.array([[577.5, 0, 319.5], [0., 577.5, 239.5], [0., 0., 1.]])
 Camera_intrinsics = np.array([[577.5, 0, 319.5], [0, 577.5, 239.5], [0, 0, 1]],
@@ -368,4 +369,33 @@ def scene_to_point_cloud(depth, intrinsic):
         np.expand_dims(Y, axis=-1),
         np.expand_dims(depth, axis=-1),
     ), axis=-1)
+    return output
+
+
+def split_into_boxes(image_data, height_sep=2, width_sep=3):
+    #
+    # image data torch shape is N x 256 x H_fix x W_fix  (256 is geo embed dimension)
+    # output torch shape will be N x 256 x num_boxes x (H_fix / sqrt(num_boxes)) x ((W_fix / sqrt(num_boxes)))
+    h = image_data.size()[-2]
+    w = image_data.size()[-1]
+    N = image_data.size()[0]
+    embedding_dim = image_data.size()[1]
+
+    # followings are the sizes of small boxes
+    height_sep_fac = h // height_sep
+    width_sep_fac = w // width_sep
+    output_num_boxes = height_sep * width_sep
+    output = torch.zeros((N, embedding_dim, output_num_boxes, height_sep_fac, width_sep_fac))
+
+    for i in range(output_num_boxes):
+        row_index = i // width_sep
+        column_index = i % width_sep
+        print("row index: ", row_index)
+        print("column index: ", column_index)
+        print("image data size: ", image_data.size())
+        print("height sep fac: ", height_sep_fac)
+        print("width sep fac: ", width_sep_fac)
+        slice = image_data[:, :, row_index*height_sep_fac: (row_index+1)*height_sep_fac,
+                column_index*width_sep_fac:(column_index+1)*width_sep_fac]
+        output[:, :, i, :, :] = slice
     return output
