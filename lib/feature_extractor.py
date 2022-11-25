@@ -17,7 +17,15 @@ class FeatureExtractor(nn.module):
         self.cnn = ModifiedResnet() #model that generates color features
         self.feat = PoseNetFeat(num_points)
 
-        self.pc_feat = #TODO set the model that generates the geometric features here
+        self.pc_feat = None #TODO set the model that generates the geometric features here
+
+        #model that generates features from depth image
+        self.depth_feat = nn.Sequential(
+            nn.Conv2d(1,3,kernel_size=1),
+            nn.Conv2d(3,64,1),
+            nn.Conv2d(64,128,1),
+            nn.Conv2d(128,1024,1)
+        )
 
 
 
@@ -58,3 +66,11 @@ class FeatureExtractor(nn.module):
         @return: geometric feature embedding calculated by pc_feat model.
         """
         return self.pc_feat(pc)
+
+    def depth_emb(self, dep_img):
+        """
+
+        @param dep_img: depth image of size HxWx1
+        @return: depth image features
+        """
+        return self.depth_feat(dep_img)
