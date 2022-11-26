@@ -152,7 +152,7 @@ class CustomDataLoaderV3(Dataset):
         self.apply_normalization = apply_normalization
 
         # pc and rgb crops will be resized to this in order to have common HxW
-        self.extracted_feature_size = (80, 120)
+        self.extracted_feature_size = (resize[0], resize[1])
         self.resizer = transform.Resize(self.extracted_feature_size)
 
     def __len__(self):
@@ -208,11 +208,13 @@ class CustomDataLoaderV3(Dataset):
         rgb = torch.permute(rgb, (2, 0, 1))
         pc = torch.permute(pc, (2, 0, 1))
 
-        # resize
-        rgb = torch.unsqueeze(self.resizer(rgb), dim=0)  # add extra dimension for that to work
-        pc = torch.unsqueeze(self.resizer(pc), dim=0)
-        rgb = torch.squeeze(rgb)
-        pc = torch.squeeze(pc)
+        # # resize
+        # rgb = torch.unsqueeze(self.resizer(rgb), dim=0)  # add extra dimension for that to work
+        # pc = torch.unsqueeze(self.resizer(pc), dim=0)
+        # rgb = torch.squeeze(rgb)
+        # pc = torch.squeeze(pc)
+
+
         # features shape (self.sampling_size, num_features=6)
         # labels shape (3, 8) - 8 from total num of vertices, 3 from xyz
         # point cloud shape: BatchSize x H x W x 3

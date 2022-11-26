@@ -3,6 +3,7 @@ import math
 import cv2
 import pickle
 import torch
+from itertools import combinations
 import time
 intrinsics = np.array([[577.5, 0, 319.5], [0., 577.5, 239.5], [0., 0., 1.]])
 Camera_intrinsics = np.array([[577.5, 0, 319.5], [0, 577.5, 239.5], [0, 0, 1]],
@@ -390,12 +391,31 @@ def split_into_boxes(image_data, height_sep=2, width_sep=3):
     for i in range(output_num_boxes):
         row_index = i // width_sep
         column_index = i % width_sep
-        print("row index: ", row_index)
-        print("column index: ", column_index)
-        print("image data size: ", image_data.size())
-        print("height sep fac: ", height_sep_fac)
-        print("width sep fac: ", width_sep_fac)
         slice = image_data[:, :, row_index*height_sep_fac: (row_index+1)*height_sep_fac,
                 column_index*width_sep_fac:(column_index+1)*width_sep_fac]
         output[:, :, i, :, :] = slice
+    return output
+
+def get_relationship_from_splits(split_data, rel_type='subtraction'):
+    # input data is N x 256 x NumBoxes(height_sep x width_sep)  x H_fix x W_fix
+    # output data shape: N x 256 x Comb(Num_boxes, 2)  x H_fix x W_fix
+    h = split_data.size()[-2]
+    w = split_data.size()[-1]
+    N = split_data.size()[0]
+    embedding_dim = split_data.size()[1]
+
+    num_boxes = split_data.size()[2]
+    # Get all combinations of [1, 2, 3]
+    # and length 2
+    comb = list(combinations([j for j in range(num_boxes)], 2))
+    output = torch.zeros((N, embedding_dim, len(comb), h, w))
+    for i in range(len(comb)):
+        # take those slices
+        slice_1 = split_data[:, :, comb[i][0], :, :]
+        slice_2 = split_data[:, :, comb[i][1], :, :]
+        if rel_type == 'subtraction':
+            output[:, :, i, :, :] = slice_1 - slice_2
+        else:
+            pass
+
     return output
