@@ -1,3 +1,5 @@
 .idea/
-pycache/
+
+__pycache__/
+knn_pytorch/
 /densefusion_lib/knn/knn_pytorch/
