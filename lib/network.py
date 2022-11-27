@@ -7,7 +7,7 @@ from densefusion_lib.network import ModifiedResnet, PoseNetFeat
 
 
 
-class ScalePoseNet(nn.module):
+class ScalePoseNet(nn.Module):
 	def __init__(self, num_points, num_obj):
 		super(ScalePoseNet, self).__init__()
 		self.num_points = num_points
@@ -49,3 +49,55 @@ class ScalePoseNet(nn.module):
 		pred_verts = self.net(ap_pc)
 
 		return pred_verts
+
+class PCNet(nn.Module):
+	def __init__(self, inchannels, emb_dim=64):
+		super(PCNet, self).__init__()
+		self.net = nn.Sequential(
+			torch.nn.Conv2d(inchannels, 512, 5, padding=2),
+			torch.nn.ReLU(),
+			torch.nn.MaxPool2d(kernel_size=2, stride=2),
+			torch.nn.Conv2d(512, 256, 3, padding=1),
+			torch.nn.ReLU(),
+			torch.nn.MaxPool2d(kernel_size=2, stride=2),
+			torch.nn.Conv2d(256, 128, 3, padding=1),
+			torch.nn.ReLU(),
+			torch.nn.MaxPool2d(kernel_size=2, stride=2),
+			nn.Flatten(),
+			nn.Linear(512, emb_dim)
+		)
+
+	def forward(self, x):
+		return self.net(x)
+
+
+class ColorNet(nn.Module):
+	def __init__(self,  inchannels, emb_dim=64):
+		super(ColorNet, self).__init__()
+		self.net = nn.Sequential(
+			torch.nn.Conv2d(inchannels, 64, 3, padding=1),
+			torch.nn.ReLU(),
+			torch.nn.MaxPool2d(kernel_size=2, stride=2),
+			torch.nn.Conv2d(64, 128, 3, padding=1),
+			torch.nn.ReLU(),
+			torch.nn.MaxPool2d(kernel_size=2, stride=2),
+			torch.nn.Conv2d(128, 64, 3, padding=1),
+			torch.nn.ReLU(),
+			torch.nn.MaxPool2d(kernel_size=2, stride=2),
+			torch.nn.Conv2d(64, 32, 3, padding=1),
+			torch.nn.ReLU(),
+			torch.nn.MaxPool2d(kernel_size=2, stride=2),
+			nn.Flatten(),
+			nn.Linear(192, emb_dim)
+		)
+	def forward(self, x):
+		return self.net(x)
+
+class GlobNet(nn.Module):
+	def __init__(self, infeatures, outfeatures = 24):
+		super(GlobNet, self).__init__()
+
+		self.net = nn.Linear(infeatures, outfeatures)
+
+	def forward(self, x):
+		return self.net(x)
