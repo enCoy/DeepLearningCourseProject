@@ -10,8 +10,10 @@ from densefusion_lib.network import ModifiedResnet, PoseNetFeat
 This class extracts color and geometry feature embeddings from RGB image and Point Cloud. 
 It also creates a global feature.
 '''
-class FeatureExtractor(nn.Module):
-    def __init__(self, num_points):
+
+class FeatureExtractor(nn.module):
+    def __init__(self, num_points=1024, num_obj=7):
+
         super(FeatureExtractor, self).__init__()
         self.num_points = num_points
         self.cnn = ModifiedResnet() #model that generates color features
