@@ -1,7 +1,9 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-from densefusion_lib import extractors
+
+import extractors
+
 
 
 class PSPModule(nn.Module):

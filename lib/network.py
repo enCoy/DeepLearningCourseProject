@@ -7,7 +7,9 @@ from densefusion_lib.network import ModifiedResnet, PoseNetFeat
 
 
 
+
 class ScalePoseNet(nn.Module):
+
 	def __init__(self, num_points, num_obj):
 		super(ScalePoseNet, self).__init__()
 		self.num_points = num_points
@@ -47,6 +49,7 @@ class ScalePoseNet(nn.Module):
 		ap_pc = self.feat(pc, emb)
 
 		pred_verts = self.net(ap_pc)
+
 
 		return pred_verts
 
@@ -101,3 +104,6 @@ class GlobNet(nn.Module):
 
 	def forward(self, x):
 		return self.net(x)
+
+		return pred_verts
+
