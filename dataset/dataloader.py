@@ -149,6 +149,8 @@ class CustomDataLoaderV3(Dataset):
         self.data_directory = data_directory
         self.data_list =  open(self.data_directory + '/' +data_name + "_processed_list_all.txt", "r").read().split("\n")
         self.meta_list = open(self.data_directory + '/' +data_name + "_processed_meta.txt", "r").read().split("\n")
+        self.data_list = self.data_list
+        self.meta_list = self.meta_list
         self.apply_normalization = apply_normalization
 
         # pc and rgb crops will be resized to this in order to have common HxW
