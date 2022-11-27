@@ -11,7 +11,7 @@ This class extracts color and geometry feature embeddings from RGB image and Poi
 It also creates a global feature.
 '''
 class FeatureExtractor(nn.module):
-    def __init__(self, num_points, num_obj):
+    def __init__(self, num_points=1024, num_obj=7):
         super(FeatureExtractor, self).__init__()
         self.num_points = num_points
         self.cnn = ModifiedResnet() #model that generates color features
@@ -21,8 +21,6 @@ class FeatureExtractor(nn.module):
             nn.Conv2d(3,16,1),
             nn.Conv2d(16,32,1)
         )
-
-        #TODO set the model that generates the geometric features here
 
         #model that generates features from depth image
         self.depth_feat = nn.Sequential(
@@ -34,7 +32,7 @@ class FeatureExtractor(nn.module):
 
 
 
-    def forward(self, img, pc, choose):
+    def forward(self, img, pc, choose=None):
         """
         Generate all features.
         @param img: img crop to get color features for, shape: Nx3xHxW
@@ -42,19 +40,6 @@ class FeatureExtractor(nn.module):
         @param choose: what points to choose for embedding
         @return: tuple of feature embeddings (color_img_feat, pc_feats)
         """
-        # out_img = self.cnn(img) #shape (N,32,H,W)
-        #
-        #
-        #
-        # bs, di, _, _ = out_img.size()
-
-        #TODO return color emb 32 channels and pc emb 32 channels of HxW
-
-        # color_emb = out_img.view(bs, di, -1)
-        # choose = choose.repeat(1, di, 1)
-        # color_emb = torch.gather(color_emb, 2, choose).contiguous()
-
-        # pc = pc.transpose(2, 1).contiguous()
 
         color_emb = self.cnn(img)  # shape (N,32,H,W)
         geo_emb = self.pc_feat(pc) # shape (N,32,H,W)
