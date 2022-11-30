@@ -2,8 +2,11 @@ import torch
 import torch.nn as nn
 import torch.nn.parallel
 import torch.nn.functional as F
+import torchvision.transforms as transform
 
 from densefusion_lib.network import ModifiedResnet, PoseNetFeat
+
+from lib.feature_extractor import FeatureExtractor
 
 
 
@@ -50,6 +53,37 @@ class ScalePoseNet(nn.Module):
 
 		pred_verts = self.net(ap_pc)
 
+		return pred_verts
+
+class LSTMPose(nn.Module):
+	def __init__(self, n_feat, out_dim, resize=(32, 48)):
+
+		super(LSTMPose, self).__init__()
+
+		if ((resize[0] % 4 != 0) and (resize[1] % 4 !=0)):
+			raise Exception("H and W must be divisible by 4")
+		self.feat = FeatureExtractor()
+		self.LSTM = nn.LSTM(input_size=n_feat, hidden_size=512, num_layers=3)
+		self.out = nn.LazyLinear(out_dim)
+
+		# pc and rgb crops will be resized to this in order to have common HxW
+		self.extracted_feature_size = (resize[0], resize[1])
+		self.resizer = transform.Resize(self.extracted_feature_size)
+
+	def forward(self, img, pc):
+		"""
+		@param img: color img of size Nx3xHxW
+		@param pc: pc of size Nx3xHxW
+		"""
+		color_feat, geo_feat = self.feat(img,pc) #each of size Nx3xHxW
+		all_feats = torch.cat([color_feat,geo_feat], 2) #Nx64xHxW
+
+		all_feats = self.resizer(all_feats) #Nx64x H_common x W_common
+
+		_,_,H,W = all_feats.shape
+
+		chunk_H = H//4
+		chunk_W = W//4
 
 		return pred_verts
 
@@ -107,4 +141,5 @@ class GlobNet(nn.Module):
 		return self.net(x)
 
 		return pred_verts
+
 
