@@ -147,12 +147,9 @@ class CustomDataLoaderV3(Dataset):
     def __init__(self, data_directory, data_name='train',apply_normalization=True, resize=(80, 120)):
         # read the files in this data directory
         self.data_directory = data_directory
-        self.data_list =  open(self.data_directory + '/' +data_name + "_processed_list_all.txt", "r").read().split("\n")
-        self.meta_list = open(self.data_directory + '/' +data_name + "_processed_meta.txt", "r").read().split("\n")
-        self.data_list = self.data_list
-        self.meta_list = self.meta_list
+        self.data_list =  open(self.data_directory + '/' +data_name + "_processed_list_camera.txt", "r").read().split("\n")
+        self.meta_list = open(self.data_directory + '/' +data_name + "_processed_meta_camera.txt", "r").read().split("\n")
         self.apply_normalization = apply_normalization
-
         # pc and rgb crops will be resized to this in order to have common HxW
         self.extracted_feature_size = (resize[0], resize[1])
         self.resizer = transform.Resize(self.extracted_feature_size)

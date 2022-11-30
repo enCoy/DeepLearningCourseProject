@@ -67,7 +67,8 @@ class PCNet(nn.Module):
 			torch.nn.ReLU(),
 			torch.nn.MaxPool2d(kernel_size=2, stride=2),
 			nn.Flatten(),
-			nn.Linear(512, emb_dim)
+			nn.Linear(3072, emb_dim)
+			# nn.Linear(512, emb_dim)
 		)
 
 	def forward(self, x):

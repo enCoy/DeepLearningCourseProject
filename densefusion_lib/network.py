@@ -15,7 +15,7 @@ import numpy as np
 import pdb
 import torch.nn.functional as F
 
-from pspnet import PSPNet
+from densefusion_lib.pspnet import PSPNet
 
 
 psp_models = {

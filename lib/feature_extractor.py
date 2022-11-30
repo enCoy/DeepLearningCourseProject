@@ -11,7 +11,7 @@ This class extracts color and geometry feature embeddings from RGB image and Poi
 It also creates a global feature.
 '''
 
-class FeatureExtractor(nn.module):
+class FeatureExtractor(nn.Module):
     def __init__(self, num_points=1024, num_obj=7):
 
         super(FeatureExtractor, self).__init__()
