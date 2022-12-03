@@ -88,7 +88,7 @@ class LSTMPose(nn.Module):
 		return pred_verts
 
 class PCNet(nn.Module):
-	def __init__(self, inchannels, emb_dim=64):
+	def __init__(self, inchannels, emb_dim=64, out_dim=3072):
 		super(PCNet, self).__init__()
 		self.net = nn.Sequential(
 			torch.nn.Conv2d(inchannels, 512, 5, padding=2),
@@ -101,7 +101,7 @@ class PCNet(nn.Module):
 			torch.nn.ReLU(),
 			torch.nn.MaxPool2d(kernel_size=2, stride=2),
 			nn.Flatten(),
-			nn.Linear(3072, emb_dim)
+			nn.Linear(out_dim, emb_dim)
 			# nn.Linear(512, emb_dim)
 		)
 
@@ -134,7 +134,6 @@ class ColorNet(nn.Module):
 class GlobNet(nn.Module):
 	def __init__(self, infeatures, outfeatures = 24):
 		super(GlobNet, self).__init__()
-
 		self.net = nn.Linear(infeatures, outfeatures)
 
 	def forward(self, x):

@@ -5,7 +5,7 @@ from utils.utils import scene_to_point_cloud, get_intrinsics
 import pickle
 import os
 import random
-from dataset.dataset_preprocess import get_data, get_data_easy
+from dataset.dataset_preprocess import get_data, get_data_easy, get_data_corrected
 import torchvision.transforms as transform
 
 import warnings
@@ -149,6 +149,8 @@ class CustomDataLoaderV3(Dataset):
         self.data_directory = data_directory
         self.data_list =  open(self.data_directory + '/' +data_name + "_processed_list_camera.txt", "r").read().split("\n")
         self.meta_list = open(self.data_directory + '/' +data_name + "_processed_meta_camera.txt", "r").read().split("\n")
+        self.data_list = self.data_list[0:100]
+        self.meta_list = self.meta_list[0:100]
         self.apply_normalization = apply_normalization
         # pc and rgb crops will be resized to this in order to have common HxW
         self.extracted_feature_size = (resize[0], resize[1])
@@ -172,7 +174,7 @@ class CustomDataLoaderV3(Dataset):
             print("This is neither REAL275 nor CAMERA!")
         intrinsics = get_intrinsics(dataset_type)
         # now we will return point cloud depth data, rgb color data, mask and label
-        point_cloud, rgb, mask, bbox_coords = get_data(self.data_directory, obj_path,
+        point_cloud, rgb, mask, bbox_coords, scales, s_correction = get_data_corrected(self.data_directory, obj_path,
                                                                                     obj_meta, dataset_type, intrinsics)
 
         point_cloud = torch.tensor(point_cloud)
@@ -216,7 +218,7 @@ class CustomDataLoaderV3(Dataset):
         # rgb shape: BatchSize x H x W x 3
         # mask shape: BatchSize x H x W
         # bbox_coords shape: BatchSize x (3 x 8)
-        return pc, rgb, bbox_coords
+        return pc, rgb, bbox_coords, scales, s_correction
 
 
 class BadSampleRemover(Dataset):

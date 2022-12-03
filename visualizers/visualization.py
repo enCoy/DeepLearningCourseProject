@@ -216,6 +216,9 @@ def generate_gt_3d_boxes_camera(data_dir, data_name='val'):
         draw_detections_gt(img, output_dir, img_id, intrinsics,
                            gt_sRT, gt_size, gt_class_ids=instance_ids)
 
+
+
+
 if __name__ == "__main__":
     user_dir = r"C:\Users\Cem Okan"   # change this on your computer
     data_dir = user_dir + r"\Dropbox (GaTech)\deep_learning_data"
