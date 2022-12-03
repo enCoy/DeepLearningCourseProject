@@ -7,8 +7,58 @@ from utils.utils import load_depth, load_coord, load_mask, load_label, load_colo
 from tqdm import tqdm
 from dataset.dataset_preprocess import process_data
 import glob
-
+from matplotlib import pyplot as plt
+import torch
 # import scipy
+
+def visualize_scene(image, object):
+
+
+    fig = plt.figure(figsize=(10, 7))
+    rows = 1
+    columns = 2
+
+    fig.add_subplot(rows, columns, 1)
+    plt.imshow(image)
+
+    fig.add_subplot(rows, columns, 2)
+    plt.imshow(object)
+    plt.show()
+    plt.close(fig)
+
+def visualize_bboxes(image, bbox_coords, object):
+    """
+
+    @param image: full image containing the object - tensor of shape (1,H,W,C)
+    @param bbox_coords: bbox for object - tensor of shape (1,24)
+    @param object: img crop of object we are drawing the bbox for - tensor of shape (1,C,H_crop,W_crop)
+    """
+    #Change everything from tensors to numpy for utils
+    image = image.squeeze().cpu().numpy()
+    bbox_coords = bbox_coords.cpu()
+    object = object.squeeze().permute(1,2,0).cpu().numpy()
+
+    intrinsics = np.array([[577.5, 0, 319.5], [0, 577.5, 239.5], [0, 0, 1]], dtype=np.float)
+
+    bbox_coords = torch.reshape(bbox_coords, (3,8)).numpy() #Reshape from 1x24 to 3x8
+
+
+    bboxes = calculate_2d_projections(bbox_coords, intrinsics)
+    img = draw_bboxes(image, bboxes,(0,255,0))
+
+    fig = plt.figure(figsize=(10, 7))
+    rows = 1
+    columns = 2
+
+    fig.add_subplot(rows, columns, 1) #visualize the full image with the bbox
+    plt.imshow(img)
+
+    fig.add_subplot(rows, columns, 2) #show the object
+    plt.imshow(object)
+    plt.show()
+    plt.close(fig)
+
+
 
 def draw_bboxes(img, img_pts, color):
     img_pts = np.int32(img_pts).reshape(-1, 2)
