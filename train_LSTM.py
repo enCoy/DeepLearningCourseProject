@@ -147,17 +147,14 @@ def run_inference(net, loader, criterion, device):
 
         for (pc, rgb, bbox_coords, img_colored) in loader:
 
-
             pc = pc.float().to(device)
             rgb = rgb.float().to(device)
 
             counter += 1
             out = net(rgb, pc)
 
-            visualize_bboxes(img_colored, bbox_coords, rgb)
-
+            visualize_bboxes(img_colored, bbox_coords, out,  rgb)
             diff = bbox_coords.float().to(device) - out
-            print(diff)
 
             loss = criterion(out, bbox_coords.float().to(device))
             print(loss)
@@ -206,7 +203,7 @@ if __name__ == "__main__":
 
     net.load_state_dict(torch.load(r'C:\Users\nadun\Dropbox (GaTech)\deep_learning_data (1)\Experiments\LSTMPose\Epoch-13\LSTMnet.pth'))
 
-    run_inference(net, test_loader, crit_x, device)
+    run_inference(net, train_loader, crit_x, device)
 
     # for epoch in range(num_epochs):
     #     print(f"Epoch {epoch + 1}")
