@@ -7,8 +7,58 @@ from utils.utils import load_depth, load_coord, load_mask, load_label, load_colo
 from tqdm import tqdm
 from dataset.dataset_preprocess import process_data
 import glob
-
+from matplotlib import pyplot as plt
+import torch
 # import scipy
+
+def visualize_scene(image, object):
+
+
+    fig = plt.figure(figsize=(10, 7))
+    rows = 1
+    columns = 2
+
+    fig.add_subplot(rows, columns, 1)
+    plt.imshow(image)
+
+    fig.add_subplot(rows, columns, 2)
+    plt.imshow(object)
+    plt.show()
+    plt.close(fig)
+
+def visualize_bboxes(image, bbox_coords, object):
+    """
+
+    @param image: full image containing the object
+    @param bbox_coords: bbox for object
+    @param object: object we are drawing the bbox for
+    """
+    image = image.squeeze().cpu().numpy()
+    bbox_coords = bbox_coords.cpu()
+    object = object.squeeze().permute(1,2,0).cpu().numpy()
+    instrinsics = np.array([[591.0125, 0, 322.525], [0, 590.16775, 244.11084], [0, 0, 1]])
+
+
+    print(bbox_coords)
+    bbox_coords = torch.reshape(bbox_coords, (3,8)).numpy() #Reshape from 1x24 to 3x8
+    print(bbox_coords)
+
+    bboxes = calculate_2d_projections(bbox_coords, instrinsics)
+    img = draw_bboxes(image, bboxes,(0,255,0))
+
+    fig = plt.figure(figsize=(10, 7))
+    rows = 1
+    columns = 2
+
+    fig.add_subplot(rows, columns, 1)
+    plt.imshow(img)
+
+    fig.add_subplot(rows, columns, 2)
+    plt.imshow(object)
+    plt.show()
+    plt.close(fig)
+
+
 
 def draw_bboxes(img, img_pts, color):
     img_pts = np.int32(img_pts).reshape(-1, 2)

@@ -175,12 +175,12 @@ class CustomDataLoaderV3(Dataset):
             print("This is neither REAL275 nor CAMERA!")
         intrinsics = get_intrinsics(dataset_type)
         # now we will return point cloud depth data, rgb color data, mask and label
-        point_cloud, rgb, mask, bbox_coords = get_data(self.data_directory, obj_path,
+        point_cloud, full_img, mask, bbox_coords = get_data(self.data_directory, obj_path,
                                                                                     obj_meta, dataset_type, intrinsics)
 
 
         point_cloud = torch.tensor(point_cloud)
-        rgb = torch.tensor(rgb)
+        rgb = torch.tensor(full_img)
         bbox_coords = torch.tensor(bbox_coords)
 
         if self.apply_normalization:
@@ -220,7 +220,7 @@ class CustomDataLoaderV3(Dataset):
         # rgb shape: BatchSize x H x W x 3
         # mask shape: BatchSize x H x W
         # bbox_coords shape: BatchSize x (3 x 8)
-        return pc, rgb, bbox_coords
+        return pc, rgb, bbox_coords, full_img
 
 
 class BadSampleRemover(Dataset):

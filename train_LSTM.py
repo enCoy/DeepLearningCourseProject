@@ -10,7 +10,8 @@ import torch.nn as nn
 import os
 from matplotlib import pyplot as plt
 import time
-from torchviz import make_dot
+from visualizers.visualization import visualize_scene, visualize_bboxes
+from utils.utils import calculate_2d_projections
 
 def plot_single_continuous_plot(x_axis, y_axis, title, x_label_pick, y_label_pick, color=None, linestyle=None,
                                 hold_on=False, legend_enable=False, label=None, save_path=None):
@@ -66,6 +67,11 @@ def plot_loss_curves(train_losses, val_losses,save_loc=None):
                                 hold_on=True, legend_enable=True, label='val',
                                 save_path=os.path.join(save_loc, "Train-Val Loss Curve.png"))
 
+
+
+
+
+
 #
 def train_loop(net, loader, criterion, optimizer, device):
 
@@ -73,12 +79,10 @@ def train_loop(net, loader, criterion, optimizer, device):
     net.train()
     counter = 0
     # start = time.time()
-    for (pc, rgb, bbox_coords) in loader:
+    for (pc, rgb, bbox_coords, img_colored) in loader:
         counter += 1
 
-        plt.imshow(rgb.squeeze().permute(1,2,0))
 
-        plt.show()
         pc = pc.float().to(device)
         rgb= rgb.float().to(device)
 
@@ -119,7 +123,7 @@ def val_loop(net, loader, criterion, device):
     net.eval()
     with torch.no_grad():
         counter = 0
-        for (pc, rgb, bbox_coords) in loader:
+        for (pc, rgb, bbox_coords, img_colored) in loader:
 
             pc = pc.float().to(device)
             rgb = rgb.float().to(device)
@@ -141,13 +145,16 @@ def run_inference(net, loader, criterion, device):
     with torch.no_grad():
         counter = 0
 
-        for (pc, rgb, bbox_coords) in loader:
+        for (pc, rgb, bbox_coords, img_colored) in loader:
+
+
             pc = pc.float().to(device)
             rgb = rgb.float().to(device)
 
             counter += 1
             out = net(rgb, pc)
 
+            visualize_bboxes(img_colored, bbox_coords, rgb)
 
             diff = bbox_coords.float().to(device) - out
             print(diff)
