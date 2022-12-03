@@ -15,8 +15,8 @@ import numpy as np
 import pdb
 import torch.nn.functional as F
 
-from pspnet import PSPNet
 
+from densefusion_lib.pspnet import PSPNet
 
 psp_models = {
     'resnet18': lambda: PSPNet(sizes=(1, 2, 3, 6), psp_size=512, deep_features_size=256, backend='resnet18'),

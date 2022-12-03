@@ -147,8 +147,8 @@ class CustomDataLoaderV3(Dataset):
     def __init__(self, data_directory, data_name='train',apply_normalization=True, resize=(80, 120)):
         # read the files in this data directory
         self.data_directory = data_directory
-        self.data_list =  open(self.data_directory + '/' +data_name + "_processed_list_all.txt", "r").read().split("\n")
-        self.meta_list = open(self.data_directory + '/' +data_name + "_processed_meta.txt", "r").read().split("\n")
+        self.data_list =  open(self.data_directory + '/' +data_name + "_processed_list_camera.txt", "r").read().split("\n")
+        self.meta_list = open(self.data_directory + '/' +data_name + "_processed_meta_camera.txt", "r").read().split("\n")
         self.data_list = self.data_list
         self.meta_list = self.meta_list
         self.apply_normalization = apply_normalization
@@ -177,6 +177,7 @@ class CustomDataLoaderV3(Dataset):
         # now we will return point cloud depth data, rgb color data, mask and label
         point_cloud, rgb, mask, bbox_coords = get_data(self.data_directory, obj_path,
                                                                                     obj_meta, dataset_type, intrinsics)
+
 
         point_cloud = torch.tensor(point_cloud)
         rgb = torch.tensor(rgb)
