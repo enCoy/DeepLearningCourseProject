@@ -12,7 +12,13 @@ import torch
 # import scipy
 
 def visualize_scene(image, object):
+    """
 
+    @param image: Scene to be visualized - tensor of shape (1,H,W,C)
+    @param object: crop of object to be visualized - tensor of shape (1,C,H,W)
+    """
+    image = image.squeeze.cpu().numpy()
+    object = object.squeeze().permute(1,2,0).cpu().numpy()
 
     fig = plt.figure(figsize=(10, 7))
     rows = 1
@@ -42,9 +48,8 @@ def visualize_bboxes(image, bbox_coords, object):
 
     bbox_coords = torch.reshape(bbox_coords, (3,8)).numpy() #Reshape from 1x24 to 3x8
 
-
     bboxes = calculate_2d_projections(bbox_coords, intrinsics)
-    img = draw_bboxes(image, bboxes,(0,255,0))
+    img = draw_bboxes(image, bboxes, (0, 255, 0))
 
     fig = plt.figure(figsize=(10, 7))
     rows = 1
@@ -57,7 +62,6 @@ def visualize_bboxes(image, bbox_coords, object):
     plt.imshow(object)
     plt.show()
     plt.close(fig)
-
 
 
 def draw_bboxes(img, img_pts, color):
