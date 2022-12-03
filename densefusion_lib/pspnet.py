@@ -2,7 +2,9 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from densefusion_lib import extractors
+
+import densefusion_lib.extractors as extractors
+
 
 
 
@@ -66,6 +68,7 @@ class PSPNet(nn.Module):
     def forward(self, x):
         f, class_f = self.feats(x) 
         p = self.psp(f)
+
         p = self.drop_1(p)
 
         p = self.up_1(p)
@@ -75,5 +78,7 @@ class PSPNet(nn.Module):
         p = self.drop_2(p)
 
         p = self.up_3(p)
-        
-        return self.final(p)
+
+        p = self.final(p)
+
+        return p

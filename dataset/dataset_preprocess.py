@@ -659,7 +659,7 @@ def get_data(data_dir, obj_path, obj_meta, dataset_type, intrinsics):
         # scale rotate and translate that bounding box
         transformed_bbox_3d = transform_coordinates_3d(bbox_3d, sRT)
         point_cloud = scene_to_point_cloud(depth, intrinsics)
-        return point_cloud, img_colored, inst_mask, transformed_bbox_3d
+        return point_cloud, img_colored, inst_mask, transformed_bbox_3d, img_colored
 
 
 def get_data_easy(data_dir, obj_path, obj_meta, dataset_type, intrinsics):
