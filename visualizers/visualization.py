@@ -53,6 +53,7 @@ def visualize_bboxes(image, gt_bbox, pred_bbox, object, s_correction):
     gt_bbox = torch.reshape(gt_bbox, (3,8)).numpy() #Reshape from 1x24 to 3x8
     pred_bbox = torch.reshape(pred_bbox, (3,8)).numpy()
 
+    s_correction = 1/s_correction
     s_correction = np.diag(s_correction.flatten())
 
     scaled_bbox = np.matmul(s_correction, gt_bbox)/ 1000
