@@ -9,6 +9,7 @@ import torch.optim as optim
 import torch.nn as nn
 import os
 from matplotlib import pyplot as plt
+import time
 
 def plot_single_continuous_plot(x_axis, y_axis, title, x_label_pick, y_label_pick, color=None, linestyle=None,
                                 hold_on=False, legend_enable=False, label=None, save_path=None):
@@ -67,6 +68,7 @@ def plot_loss_curves(train_losses, val_losses,save_loc=None):
 #
 def train_loop(nets, resizer, loader, criterion, optimizer, device):
     overall_loss = 0
+    optimizer.zero_grad()
     for k in range(len(nets)):
         nets[k].train()
     counter = 0
@@ -82,7 +84,7 @@ def train_loop(nets, resizer, loader, criterion, optimizer, device):
         # color feats shape: N x 32 x H_fix x W_fix
         # geo feats shape: N x 32 x H_fix x W_fix
         # now split it into boxes - 6 boxes (2 x 3) in this case
-        splits = split_into_boxes(geo_feats, height_sep=2, width_sep=3)
+        splits = split_into_boxes(geo_feats, height_sep=1, width_sep=1)
         # splits shape: N x 32 x NumBoxes(height_sep x width_sep)  x H_fix x W_fix
 
         # SALIL YOU CAN USE IT UNTIL HERE
@@ -112,7 +114,7 @@ def train_loop(nets, resizer, loader, criterion, optimizer, device):
 
         optimizer.step()
         # RMSE error is more interpretable
-        overall_loss += torch.sqrt(loss)
+        overall_loss += torch.sqrt(loss).detach()
 
 
     overall_loss = overall_loss / counter
@@ -137,7 +139,7 @@ def val_loop(nets, resizer, loader, criterion, device):
             # color feats shape: N x 32 x H_fix x W_fix
             # geo feats shape: N x 32 x H_fix x W_fix
             # now split it into boxes - 6 boxes (2 x 3) in this case
-            splits = split_into_boxes(geo_feats, height_sep=2, width_sep=3)
+            splits = split_into_boxes(geo_feats, height_sep=1, width_sep=1)
             # splits shape: N x 32 x NumBoxes(height_sep x width_sep)  x H_fix x W_fix
 
             # SALIL YOU CAN USE IT UNTIL HERE
@@ -158,7 +160,7 @@ def val_loop(nets, resizer, loader, criterion, device):
 
             loss = criterion(out, bbox_coords.float().to(device))
             # RMSE error is more interpretable
-            overall_loss += torch.sqrt(loss)
+            overall_loss += torch.sqrt(loss).detach()
 
 
     overall_loss = overall_loss / counter
@@ -171,7 +173,7 @@ if __name__ == "__main__":
     data_dir = user_dir + r'\Dropbox (GaTech)\deep_learning_data'
     # sampling size does not work right now
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
+    print("Device: ", device)
     extracted_feature_size = (32, 48)
     feature_extractor = FeatureExtractor(num_points=extracted_feature_size[0] * extracted_feature_size[1])
     feature_extractor.to(device)
@@ -187,33 +189,49 @@ if __name__ == "__main__":
 
     # initialize PCNet
     emb = 64
-    pcnet = PCNet(inchannels=21 * 32)
+    pcnet = PCNet(inchannels=1 * 32)
+    # pcnet = PCNet(inchannels=21 * 32)
     colornet = ColorNet(inchannels=32)
     globnet = GlobNet(2 * emb, 24)
     pcnet.to(device)
     colornet.to(device)
     globnet.to(device)
 
+    exp_folder = os.path.join(user_dir, data_dir, 'Experiments', 'ExpScaleX')
+    model_path = os.path.join(exp_folder, f'Epoch-13')
+    pcnet.load_state_dict(torch.load(os.path.join(model_path, "pcnet.pth")))
+    colornet.load_state_dict(torch.load(os.path.join(model_path, "colornet.pth")))
+    feature_extractor.load_state_dict(torch.load(os.path.join(model_path, "feature_extractor.pth")))
+    globnet.load_state_dict(torch.load(os.path.join(model_path, "globnet.pth")))
+
     crit_x = nn.MSELoss()
     optim_x = optim.SGD([*feature_extractor.parameters(), *pcnet.parameters(),
-                           *colornet.parameters(), *globnet.parameters()], lr=0.00005, momentum=0.9)
+                           *colornet.parameters(), *globnet.parameters()], lr=0.00001, momentum=0.9)
     nets = [feature_extractor, pcnet, colornet, globnet]
 
-    exp_folder = os.path.join(user_dir, data_dir, 'Experiments','ExpScale6')
+
 
     num_epochs = 50
     train_losses = []
     val_losses = []
+
+    prev_time = time.time()
     for epoch in range(num_epochs):
         print(f"Epoch {epoch + 1}")
         epoch_train_loss, nets = train_loop(nets=nets, resizer=train_dataset.resizer,
                                               loader=train_loader, criterion=crit_x, optimizer=optim_x, device=device)
         train_losses.append(epoch_train_loss.item())
-        print("Train loss:", epoch_train_loss)
+
+        current_time = time.time()
+        print(f"Train loss: {epoch_train_loss}    Time passed: {current_time - prev_time}")
+        prev_time = current_time
+
         epoch_val_loss = val_loop(nets=nets, resizer=val_dataset.resizer,
                                               loader=val_loader, criterion=crit_x, device=device)
         val_losses.append(epoch_val_loss.item())
-        print("Val loss:", epoch_val_loss)
+        current_time = time.time()
+        print(f"Val loss: {epoch_val_loss}    Time passed: {current_time - prev_time}")
+        prev_time = current_time
 
         epoch_folder = os.path.join(exp_folder, f'Epoch-{epoch+1}')
         if not os.path.isdir(epoch_folder):
