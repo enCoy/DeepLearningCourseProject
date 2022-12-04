@@ -32,10 +32,8 @@ def visualize_scene(image, object):
     plt.show()
     plt.close(fig)
 
-def visualize_bboxes(image, gt_bbox, pred_bbox, object, s_correction):
+def visualize_bboxes(image, gt_bbox, pred_bbox, object, object_scale, s_correction, sRT):
     """
-
-
     @param image: full image containing the object - tensor of shape (1,H,W,C)
     @param gt_bbox: gt bbox for object - tensor of shape (1,24)
     @param pred_bbox: pred bbox for objects - tensor of shape (1,24)
@@ -47,50 +45,46 @@ def visualize_bboxes(image, gt_bbox, pred_bbox, object, s_correction):
     gt_bbox = gt_bbox.cpu()
     pred_bbox = pred_bbox.cpu()
     object = object.squeeze().permute(1,2,0).cpu().numpy()
-
     intrinsics = np.array([[577.5, 0, 319.5], [0, 577.5, 239.5], [0, 0, 1]], dtype=np.float)
 
     gt_bbox = torch.reshape(gt_bbox, (3,8)).numpy() #Reshape from 1x24 to 3x8
     pred_bbox = torch.reshape(pred_bbox, (3,8)).numpy()
 
-    s_correction = 1/s_correction
-    s_correction = np.diag(s_correction.flatten())
+    # apply correction for data loader mistake - to gt
+    gt_bbox = transform_coordinates_3d(gt_bbox, np.linalg.inv(sRT))
+    gt_bbox = np.matmul(np.diag(1/s_correction.flatten()), gt_bbox)
+    gt_bbox = gt_bbox * object_scale.item()
+    gt_bbox = transform_coordinates_3d(gt_bbox, sRT)
+    gt_bbox = gt_bbox.numpy()
 
-    scaled_bbox = np.matmul(s_correction, gt_bbox)/ 1000
-    pred_bbox = np.matmul(s_correction, pred_bbox)/1000
+    # apply correction for data loader mistake - to pred
+    pred_bbox = transform_coordinates_3d(pred_bbox, np.linalg.inv(sRT))
+    pred_bbox = np.matmul(np.diag(1 / s_correction.flatten()), pred_bbox)
+    pred_bbox = pred_bbox * object_scale.item()
+    pred_bbox = transform_coordinates_3d(pred_bbox, sRT)
+    pred_bbox = pred_bbox.numpy()
 
     gt_2D = calculate_2d_projections(gt_bbox, intrinsics)
     gt_img = draw_bboxes(np.copy(image), gt_2D, (0, 255, 0))
 
     fig = plt.figure(figsize=(10, 7))
     rows = 1
-    columns = 4
+    columns = 3
 
     fig.add_subplot(rows, columns, 1) #visualize the full image with the gt bbox
     plt.imshow(gt_img)
     plt.title("Ground truth")
 
-    scaled_2D = calculate_2d_projections(scaled_bbox, intrinsics)
-    scaled_img = draw_bboxes(np.copy(image), scaled_2D, (0, 255, 0))
-
-    fig.add_subplot(rows, columns, 2)
-    plt.imshow(scaled_img)
-    plt.title("After Scale Correction")
-
     pred_2D = calculate_2d_projections(pred_bbox, intrinsics)
     pred_img = draw_bboxes(np.copy(image), pred_2D, (0,255,0))
 
-    fig.add_subplot(rows, columns, 3) #show the predicted bbox
+    fig.add_subplot(rows, columns, 2) #show the predicted bbox
     plt.imshow(pred_img)
     plt.title("Predicted")
 
-
-
-
-    fig.add_subplot(rows, columns, 4) #show the object
+    fig.add_subplot(rows, columns, 3) #show the object
     plt.imshow(object)
     plt.title("Object ")
-
 
     plt.show()
 
