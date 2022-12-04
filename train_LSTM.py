@@ -145,7 +145,7 @@ def run_inference(net, loader, criterion, device):
     with torch.no_grad():
         counter = 0
 
-        for (pc, rgb, bbox_coords, img_colored) in loader:
+        for (pc, rgb, bbox_coords, scales, s_correction, full_image) in loader:
 
             pc = pc.float().to(device)
             rgb = rgb.float().to(device)
@@ -153,7 +153,7 @@ def run_inference(net, loader, criterion, device):
             counter += 1
             out = net(rgb, pc)
 
-            visualize_bboxes(img_colored, bbox_coords, out,  rgb)
+            visualize_bboxes(full_image, bbox_coords, out,  rgb, s_correction)
             diff = bbox_coords.float().to(device) - out
 
             loss = criterion(out, bbox_coords.float().to(device))

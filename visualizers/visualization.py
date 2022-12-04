@@ -32,13 +32,15 @@ def visualize_scene(image, object):
     plt.show()
     plt.close(fig)
 
-def visualize_bboxes(image, gt_bbox, pred_bbox, object):
+def visualize_bboxes(image, gt_bbox, pred_bbox, object, s_correction):
     """
+
 
     @param image: full image containing the object - tensor of shape (1,H,W,C)
     @param gt_bbox: gt bbox for object - tensor of shape (1,24)
     @param pred_bbox: pred bbox for objects - tensor of shape (1,24)
     @param object: img crop of object we are drawing the bbox for - tensor of shape (1,C,H_crop,W_crop)
+    @param s_correction:
     """
     #Change everything from tensors to numpy for utils
     image = image.squeeze().cpu().numpy()
@@ -51,28 +53,41 @@ def visualize_bboxes(image, gt_bbox, pred_bbox, object):
     gt_bbox = torch.reshape(gt_bbox, (3,8)).numpy() #Reshape from 1x24 to 3x8
     pred_bbox = torch.reshape(pred_bbox, (3,8)).numpy()
 
-    gt_bbox = np.divide(gt_bbox, 1000)
-    pred_bbox = np.divide(pred_bbox, 1000)
+    s_correction = 1/s_correction
+    s_correction = np.diag(s_correction.flatten())
+
+    scaled_bbox = np.matmul(s_correction, gt_bbox)/ 1000
+    pred_bbox = np.matmul(s_correction, pred_bbox)/1000
 
     gt_2D = calculate_2d_projections(gt_bbox, intrinsics)
     gt_img = draw_bboxes(np.copy(image), gt_2D, (0, 255, 0))
 
     fig = plt.figure(figsize=(10, 7))
     rows = 1
-    columns = 3
+    columns = 4
 
     fig.add_subplot(rows, columns, 1) #visualize the full image with the gt bbox
     plt.imshow(gt_img)
     plt.title("Ground truth")
 
-    pred_2D = calculate_2d_projections(pred_bbox, intrinsics)
-    pred_img = draw_bboxes(image, pred_2D, (0,255,0))
+    scaled_2D = calculate_2d_projections(scaled_bbox, intrinsics)
+    scaled_img = draw_bboxes(np.copy(image), scaled_2D, (0, 255, 0))
 
-    fig.add_subplot(rows, columns, 2) #show the predicted bbox
+    fig.add_subplot(rows, columns, 2)
+    plt.imshow(scaled_img)
+    plt.title("After Scale Correction")
+
+    pred_2D = calculate_2d_projections(pred_bbox, intrinsics)
+    pred_img = draw_bboxes(np.copy(image), pred_2D, (0,255,0))
+
+    fig.add_subplot(rows, columns, 3) #show the predicted bbox
     plt.imshow(pred_img)
     plt.title("Predicted")
 
-    fig.add_subplot(rows, columns, 3) #show the object
+
+
+
+    fig.add_subplot(rows, columns, 4) #show the object
     plt.imshow(object)
     plt.title("Object ")
 
