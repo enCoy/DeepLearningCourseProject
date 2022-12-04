@@ -8,9 +8,43 @@ import time
 intrinsics = np.array([[577.5, 0, 319.5], [0., 577.5, 239.5], [0., 0., 1.]])
 Camera_intrinsics = np.array([[577.5, 0, 319.5], [0, 577.5, 239.5], [0, 0, 1]],
                                           dtype=np.float)  # [fx, fy, cx, cy]
-
+from pyquaternion import Quaternion
 
 # source: https://github.com/mentian/object-deformnet/blob/master/preprocess/pose_data.py
+
+def compute_diff(sRT_1, sRT_2):
+    """
+    Reference: https://github.com/lolrudy/GPV_Pose/blob/master/evaluation/eval_utils.py
+    Args:
+        sRT_1: [4, 4]. homogeneous affine transformation
+        sRT_2: [4, 4]. homogeneous affine transformation
+    Returns:
+        theta: angle difference of R in degree
+        shift: l2 difference of T in centimeter
+    """
+    # make sure the last row is [0, 0, 0, 1]
+    if sRT_1 is None or sRT_2 is None:
+        return -1
+    try:
+        assert np.array_equal(sRT_1[3, :], sRT_2[3, :])
+        assert np.array_equal(sRT_1[3, :], np.array([0, 0, 0, 1]))
+    except AssertionError:
+        print(sRT_1[3, :], sRT_2[3, :])
+        exit()
+
+    R1 = sRT_1[:3, :3] / np.cbrt(np.linalg.det(sRT_1[:3, :3]))
+    T1 = sRT_1[:3, 3]
+    R2 = sRT_2[:3, :3] / np.cbrt(np.linalg.det(sRT_2[:3, :3]))
+    T2 = sRT_2[:3, 3]
+
+    R = R1 @ R2.transpose()
+    cos_theta = (np.trace(R) - 1) / 2
+
+    theta = np.arccos(np.clip(cos_theta, -1.0, 1.0)) * 180 / np.pi
+    shift = np.linalg.norm(T1 - T2) * 100
+    result = np.array([theta, shift])
+
+    return theta, shift
 
 def get_intrinsics(dataset_type):
     if dataset_type == 'CAMERA':
@@ -101,6 +135,7 @@ def calculate_2d_projections(coordinates_3d, intrinsics):
 def calculate_2d_projections_inv(projected_coordinates, intrinsics):
     # from [N, 2] to [3, N]
     projected_coordinates =  projected_coordinates.transpose()
+
 
 
 
