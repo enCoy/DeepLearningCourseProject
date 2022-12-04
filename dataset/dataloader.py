@@ -7,6 +7,7 @@ import os
 import random
 from dataset.dataset_preprocess import get_data, get_data_easy, get_data_corrected
 import torchvision.transforms as transform
+import numpy as np
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -174,8 +175,10 @@ class CustomDataLoaderV3(Dataset):
             print("This is neither REAL275 nor CAMERA!")
         intrinsics = get_intrinsics(dataset_type)
         # now we will return point cloud depth data, rgb color data, mask and label
-        point_cloud, rgb, mask, bbox_coords, scales, s_correction = get_data_corrected(self.data_directory, obj_path,
+        point_cloud, rgb, mask, bbox_coords, scales, s_correction, sRT = get_data_corrected(self.data_directory, obj_path,
                                                                                     obj_meta, dataset_type, intrinsics)
+
+        image_full = np.copy(rgb)
 
         point_cloud = torch.tensor(point_cloud)
         rgb = torch.tensor(rgb)
@@ -218,7 +221,7 @@ class CustomDataLoaderV3(Dataset):
         # rgb shape: BatchSize x H x W x 3
         # mask shape: BatchSize x H x W
         # bbox_coords shape: BatchSize x (3 x 8)
-        return pc, rgb, bbox_coords, scales, s_correction
+        return pc, rgb, bbox_coords, scales, s_correction, image_full, sRT
 
 
 class BadSampleRemover(Dataset):

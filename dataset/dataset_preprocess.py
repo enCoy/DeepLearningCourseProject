@@ -823,7 +823,7 @@ def get_data_corrected(data_dir, obj_path, obj_meta, dataset_type, intrinsics):
         # project that bounding box to 2d from 3d
         # projected_bbox = calculate_2d_projections(transformed_bbox_3d, intrinsics)
         point_cloud = scene_to_point_cloud(depth, intrinsics)
-        return point_cloud, img_colored, inst_mask, transformed_bbox_3d, scales, s
+        return point_cloud, img_colored, inst_mask, transformed_bbox_3d, scales, s, sRT
 
 
 
