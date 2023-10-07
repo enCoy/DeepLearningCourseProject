@@ -101,9 +101,6 @@ def eval_fuse(data, scales, globnet,
 
     return overall_loss, out.cpu().numpy() , R, T
 
-
-
-
 def fix_mistake(coords, sRT, s_correction, object_scale):
     coords = transform_coordinates_3d(coords, np.linalg.inv(sRT))
     coords = np.matmul(np.diag(1 / s_correction.flatten()), coords)

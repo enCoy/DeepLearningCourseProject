@@ -8,7 +8,7 @@ import time
 intrinsics = np.array([[577.5, 0, 319.5], [0., 577.5, 239.5], [0., 0., 1.]])
 Camera_intrinsics = np.array([[577.5, 0, 319.5], [0, 577.5, 239.5], [0, 0, 1]],
                                           dtype=np.float)  # [fx, fy, cx, cy]
-from pyquaternion import Quaternion
+# from pyquaternion import Quaternion
 
 # source: https://github.com/mentian/object-deformnet/blob/master/preprocess/pose_data.py
 
